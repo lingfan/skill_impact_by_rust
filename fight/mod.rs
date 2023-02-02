@@ -1,168 +1,32 @@
-use num_enum::{TryFromPrimitive, TryFromPrimitiveError};
+use num_enum::TryFromPrimitive;
+use num_enum::IntoPrimitive;
 use std::convert::TryFrom;
+use crate::fight::fight_round_info::FightRoundInfo;
 use crate::fight::skill_const::{MAX_CONATTACK_TIMES, MAX_IMPACT_NUMBER, MAX_MATRIX_CELL_COUNT};
-use enum_try_into::impl_enum_try_from;
 
 mod fight_cell;
 mod fight_object;
 mod impact;
 mod skill;
+mod attack_info;
+mod skill_attack;
+mod impact_info;
+mod fight_round_info;
+mod utils;
 
 
-//属性值计算公式
-pub fn calcattr1(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32, g: f32) -> f32 {
-    (a + b * c * 0.01) * (1.0 + d * 0.01 + e * 0.01) + f + g
-}
 
-pub fn calcattr2(a: f32, b: f32, c: f32) -> f32 {
-    a + b + c
-}
 
-pub fn calcattr3(a: f32, b: f32, c: f32) -> u32 {
-    ((1.0 - (1.0 - a * 0.01) * (1.0 - b * 0.01) * (1.0 - c * 0.01)) * 100.0) as u32
-}
 
-pub fn calcdamage(a: f32, b: f32, c: f32) -> u32 {
-    ((a - b) * (1.0 - c * 0.01)) as u32
-}
-
-pub fn chkmin(a: &mut u32, b: u32) {
-    if *a < b {
-        *a = b
-    }
-}
-
-pub fn getskillgroup(a: u32) -> u32 {
-    a / 100
-}
-
-pub fn getskilllevel(a: u32) -> u32 {
-    a % 100
-}
-
-impl_enum_try_from!(
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[repr(u8)]
-pub enum EmTypeFight
-{
+pub enum EmTypeFight{
     #[default]
     EmTypeFightNormal = 0,
     EmTypeFightStair,
     //单排
     EmTypeFightCount,
 }
-);
-
-/// 出手信息
-#[derive(Debug, Default, Clone)]
-pub struct AttackInfo {
-    cast_guid: u32,
-    /// 对象guid
-
-    b_skilled: u32,
-    /// 魔法攻击还是普通攻击
-    /// 魔法攻击
-    skill_attack_list: Vec<SkillAttack>,
-    /// 如果是普通攻击先进行装备技能攻击
-    skill_attack_count: u32,
-
-    /// 普通攻击
-    skill_target: u32,
-    /// 普通攻击目标
-    b_hit: u32,
-    /// 是否命中
-    b_strike: u32,
-    /// 是否暴击
-    hurt: u32,
-    /// 伤害值
-    b_back_attack: u32,
-    /// 是否有反击
-    /// 反击伤害
-    back_attack_hurt: u32,
-}
-
-impl AttackInfo {
-    pub fn new() -> AttackInfo {
-        AttackInfo::default()
-    }
-
-    pub fn is_valid(&self) -> bool {
-        self.cast_guid > 0
-    }
-
-    pub fn get_skill_attack(&self, skill_id: u32) -> Option<&SkillAttack> {
-        for v in self.skill_attack_list.iter() {
-            if v.skill_id == skill_id {
-                return Some(v);
-            }
-        }
-        None
-    }
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct SkillAttack {
-    skill_id: u32,
-    /// 技能ID
-    skill_target: u32,
-    /// 技能目标
-    cost_mp: u32,
-    /// 消耗魔法量
-    impact: u32,
-    /// impact列表
-    /// impact个数
-    impact_count: u32,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ImpactInfo {
-    skill_id: u32,
-    impact_id: u32,
-    target_list: Vec<u32>,
-    target_count: u32,
-    con_atk_times: u32,
-    hurts: [[i32; MAX_CONATTACK_TIMES as usize]; MAX_MATRIX_CELL_COUNT as usize],
-    /// 本次技能带给的魔法量变化 >0 减蓝 < 0 加蓝
-    mp: i32,
-}
-
-impl SkillAttack {
-    pub fn new() -> SkillAttack {
-        SkillAttack::default()
-    }
-
-    pub fn is_valid(&self) -> bool {
-        self.skill_id > 0
-    }
-
-    pub fn get_impact_info(&self, impact_id: u32) -> ImpactInfo {
-        ImpactInfo::default()
-    }
-}
-
-impl ImpactInfo {
-    pub fn new() -> ImpactInfo {
-        ImpactInfo::default()
-    }
-
-    pub fn is_valid(&self) -> bool {
-        self.impact_id > 0
-    }
-
-    pub fn get_target_index(&self, target_guid: u32) -> Option<usize> {
-        if !target_guid > 0 {
-            return None;
-        }
-        for (i, v) in self.target_list.iter().enumerate() {
-            if *v == target_guid {
-                return Some(i as usize);
-            }
-        }
-
-        None
-    }
-}
-
 
 #[derive(Debug, Default, Clone)]
 pub struct FightDBData {
@@ -245,17 +109,6 @@ pub struct FightDBData {
     /// 颜色
     color: u32,
 
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct FightRoundInfo {
-    attack_object_info: Vec<FObjectInfo>,
-    attack_object_count: u32,
-    defend_object_info: Vec<FObjectInfo>,
-    defend_object_count: u32,
-    attack_info: Vec<AttackInfo>,
-    //出手数据
-    attack_info_count: u32,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -351,137 +204,96 @@ pub mod skill_const {
     pub const MAX_OFFLINE_FIGHTDATA_SIZE: u32 = 1000;
 }
 
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum EmAttribute {
+    #[default]
+    EmAttributeInvalid = 0,
+    ///最大生命
+    EmAttributeMaxHp = 1,
+    ///移动速度
+    EmAttributeMoveSpeed = 2,
+    ///攻击速度
+    EmAttributeAttackSpeed,
+    ///物理攻击
+    EmAttributePhysicAttack,
+    ///物理防御
+    EmAttributePhysicDefence,
+    ///命中点数
+    EmAttributeHit,
+    ///闪避点数
+    EmAttributeDodge,
+    ///暴击
+    EmAttributeStrike,
+    ///连击
+    EmAttributeContinuous,
+    ///反击
+    EmAttributeBackAttack,
+    ///连击次数
+    EmAttributeContinuousTimes,
+    ///连击伤害
+    EmAttributeHurtContinuous,
+    ///反击伤害
+    EmAttributeHurtBackAttack,
+    ///暴击伤害
+    EmAttributeHurtStrike,
+    ///物理伤害减免
+    EmAttributePhysicHurtDecay,
+    ///暴击伤害减免
+    EmAttributeStrikeHurtDecay,
+    ///附加伤害
+    EmAttributeHurtExtra,
+    ///普通攻击伤害
+    EmAttributeHurtPhysic,
+    ///魔法攻击
+    EmAttributeMagicAttack,
+    ///魔法防御
+    EmAttributeMagicDefence,
+    ///魔法伤害减免
+    EmAttributeMagicHurtDecay,
+    ///最大魔法值
+    EmAttributeMaxMp,
+    ///攻击速度百分比
+    EmAttributePercentAttackSpeed,
+    ///物理攻击百分比
+    EmAttributePercentPhysicAttack,
+    ///魔法攻击百分比
+    EmAttributePercentMagicAttack,
+    ///物理防御百分比
+    EmAttributePercentPhysicDefence,
+    ///魔法防御百分比
+    EmAttributePercentMagicDefence,
+    ///最大生命值百分比
+    EmAttributePercentMaxHp,
+    ///最大魔法值百分比
+    EmAttributePercentMaxMp,
+    ///等级
+    EmAttributeLevel,
+    ///血量
+    EmAttributeHp,
+    ///魔法值
+    EmAttributeMp,
+    ///当前经验
+    EmAttributeCurrentExp,
+    ///行动力
+    EmAttributeAction,
+    EmAttributeNumber,
+}
 
-impl FightRoundInfo {
-    pub fn new() -> Self {
-        Self::default()
+impl EmAttribute {
+    pub fn into_u8(self) -> u8 {
+        let res: u8 = self.into();
+        res
     }
-    pub fn get_fobjectinfo_by_guid(&self, guid: u32) -> Option<Box<FObjectInfo>> {
-        if guid < 0 {
-            return None;
-        }
 
-        for v in self.attack_object_info.iter() {
-            if v.m_guid == guid {
-                return Some(Box::new(v.clone()));
-            }
-        }
+    pub fn into_u32(self) -> u32 {
+        let res = self.into_u8() as u32;
+        res
+    }
 
-        for v in self.defend_object_info.iter() {
-            if v.m_guid == guid {
-                return Some(Box::new(v.clone()));
-            }
-        }
-
-        None
+    pub fn into_usize(self) -> usize {
+        let res = self.into_u8() as usize;
+        res
     }
 }
 
-
-pub mod object_define {
-    #[derive(Default, Debug, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
-    #[repr(u8)]
-    pub enum EmAttribute {
-        #[default]
-        EmAttributeInvalid = 0,
-        ///最大生命
-        EmAttributeMaxHp = 1,
-        ///移动速度
-        EmAttributeMoveSpeed = 2,
-        ///攻击速度
-        EmAttributeAttackSpeed,
-        ///物理攻击
-        EmAttributePhysicAttack,
-        ///物理防御
-        EmAttributePhysicDefence,
-        ///命中点数
-        EmAttributeHit,
-        ///闪避点数
-        EmAttributeDodge,
-        ///暴击
-        EmAttributeStrike,
-        ///连击
-        EmAttributeContinuous,
-        ///反击
-        EmAttributeBackAttack,
-        ///连击次数
-        EmAttributeContinuousTimes,
-        ///连击伤害
-        EmAttributeHurtContinuous,
-        ///反击伤害
-        EmAttributeHurtBackAttack,
-        ///暴击伤害
-        EmAttributeHurtStrike,
-        ///物理伤害减免
-        EmAttributePhysicHurtDecay,
-        ///暴击伤害减免
-        EmAttributeStrikeHurtDecay,
-        ///附加伤害
-        EmAttributeHurtExtra,
-        ///普通攻击伤害
-        EmAttributeHurtPhysic,
-        ///魔法攻击
-        EmAttributeMagicAttack,
-        ///魔法防御
-        EmAttributeMagicDefence,
-        ///魔法伤害减免
-        EmAttributeMagicHurtDecay,
-        ///最大魔法值
-        EmAttributeMaxMp,
-        ///攻击速度百分比
-        EmAttributePercentAttackSpeed,
-        ///物理攻击百分比
-        EmAttributePercentPhysicAttack,
-        ///魔法攻击百分比
-        EmAttributePercentMagicAttack,
-        ///物理防御百分比
-        EmAttributePercentPhysicDefence,
-        ///魔法防御百分比
-        EmAttributePercentMagicDefence,
-        ///最大生命值百分比
-        EmAttributePercentMaxHp,
-        ///最大魔法值百分比
-        EmAttributePercentMaxMp,
-        ///等级
-        EmAttributeLevel,
-        ///血量
-        EmAttributeHp,
-        ///魔法值
-        EmAttributeMp,
-        ///当前经验
-        EmAttributeCurrentExp,
-        ///行动力
-        EmAttributeAction,
-        EmAttributeNumber,
-    }
-
-    // impl EmAttribute {
-    //     pub fn into_u8(self) -> u8 {
-    //         let res: u8 = self.into();
-    //         res
-    //     }
-    //
-    //     pub fn into_u32(self) -> u32 {
-    //         let res = self.into_u8() as u32;
-    //         res
-    //     }
-    // }
-
-    // ///技能消耗类型
-    // #[derive(Debug, Clone, Copy, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
-    // #[repr(u8)]
-    // pub enum SkillConsumeType {
-    //     Energy = 1, //能量
-    // }
-    //
-    // impl SkillConsumeType {
-    //     pub fn into_u8(self) -> u8 {
-    //         let res: u8 = self.into();
-    //         res
-    //     }
-    //     pub fn into_u32(self) -> u32 {
-    //         let res = self.into_u8();
-    //         res as u32
-    //     }
-    // }
-}

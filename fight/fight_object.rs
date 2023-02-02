@@ -1,7 +1,8 @@
-use crate::fight::{AttackInfo, FightDBData};
+use crate::fight::{FightDBData};
+use crate::fight::attack_info::AttackInfo;
 use crate::fight::fight_cell::FightCell;
 use crate::fight::impact::Impact;
-use crate::fight::object_define::EmAttribute::EmAttributeNumber;
+use crate::fight::EmAttribute::EmAttributeNumber;
 use crate::fight::skill::Skill;
 use crate::fight::skill_const::MAX_IMPACT_NUMBER;
 
@@ -23,7 +24,7 @@ pub struct FightObject {
     /// buff列表(所有buffer)
     implicit_list: [Impact;MAX_IMPACT_NUMBER as usize],
     /// 技能影响
-    implicit_effect: [u32;30],
+    implicit_effect: [i32;30],
     /// 战斗条长度
     fight_distance: u32,
     /// 出手信息
@@ -111,7 +112,7 @@ impl FightObject {
 
     pub fn set_hp(&mut self, hp: u32) { self.fight_db_data.hp = hp; }
 
-    pub fn change_effect(&mut self, n_attr_type:usize, n_value:u32, b_remove:bool)
+    pub fn change_effect(&mut self, n_attr_type:usize, n_value:i32, b_remove:bool)
     {
         if b_remove {
             self.implicit_effect[n_attr_type] -= n_value;

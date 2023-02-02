@@ -1,8 +1,9 @@
+use num_enum::{TryFromPrimitive, IntoPrimitive};
 use std::collections::HashMap;
-use crate::fight::{calcdamage, chkmin, EmTypeFight};
 use crate::fight::fight_object::FightObject;
-use crate::fight::object_define::EmAttribute;
+use crate::fight::{EmAttribute, EmTypeFight};
 use crate::fight::skill_const::MAX_IMPACT_LOGIC_PARAM_COUNT;
+use crate::fight::utils::{calcdamage, chkmin};
 
 #[derive(Debug, Default, Clone)]
 struct TableRowImpact {
@@ -12,7 +13,7 @@ struct TableRowImpact {
     //策划描述
     logic_id: u32,
     //Impact逻辑id
-    param: [u32; MAX_IMPACT_LOGIC_PARAM_COUNT as usize],
+    param: [i32; MAX_IMPACT_LOGIC_PARAM_COUNT as usize],
     //逻辑参数
     icon: String,
     //Buff图标
@@ -79,11 +80,11 @@ impl Impact {
                 self.con_att_times = con_att_times;
             }
             2 | 3 => {
-                self.life += row.param[2] - row.param[3];
-                self.term = row.param[3]
+                self.life += (row.param[2] - row.param[3]) as u32;
+                self.term = row.param[3] as u32
             }
             4 | 5 => {
-                self.life += row.param[2] - 1;
+                self.life += row.param[2] as u32 - 1;
             }
             _ => {}
         }
@@ -124,12 +125,12 @@ impl Impact {
             let row = self.get_impact_row();
             match row.logic_id {
                 0 => self.impact_logic0(),
-                1 => self.impact_logic0(),
-                2 => self.impact_logic0(),
-                3 => self.impact_logic0(),
-                4 => self.impact_logic0(),
-                5 => self.impact_logic0(),
-                6 => self.impact_logic0(),
+                1 => self.impact_logic1(),
+                2 => self.impact_logic2(),
+                3 => self.impact_logic3(),
+                4 => self.impact_logic4(),
+                5 => self.impact_logic5(),
+                6 => self.impact_logic6(),
                 _ => {}
             }
         }
@@ -461,20 +462,19 @@ impl Impact {
 
         if self.logic_time <= self.life {
             let n = p_row.param[0] as u8;
-            // let tp = EmAttribute::try_from(n);
-            // let attr_type = tp.unwrap();
-            // let n_attr_type = attr_type.into();
-            let n_attr_type = 1usize;
+            let tp = EmAttribute::try_from(n);
+            let attr_type = tp.unwrap();
+            let n_attr_type = attr_type.into_usize();
             self.p_holder.change_effect(n_attr_type, p_row.param[1], false);
 
             if self.start_time == self.logic_time {
-                // if attr_type == EmAttribute::EmAttributeHp {
-                //     self.p_holder.set_hp(self.p_holder.get_hp());
-                //     p_impact_info.hurts[index][0] = p_row.param[1] as i32 * -1;
-                // }
-                // if attr_type == EmAttribute::EmAttributeMp {
-                //     p_impact_info.mp[index] = p_row.param[1] as i32 * -1;
-                // }
+                if attr_type == EmAttribute::EmAttributeHp {
+                    self.p_holder.set_hp(self.p_holder.get_hp());
+                    p_impact_info.hurts[index][0] = p_row.param[1] as i32 * -1;
+                }
+                if attr_type == EmAttribute::EmAttributeMp {
+                    p_impact_info.mp[index] = p_row.param[1] as i32 * -1;
+                }
             } else if self.start_time < self.logic_time {
                 let p_round_info = p_fight_cell.get_round_info();
                 let mut p_fobjectinfo = p_round_info.get_fobjectinfo_by_guid(self.p_holder.get_guid());
@@ -483,12 +483,12 @@ impl Impact {
                     let obj = p_fobjectinfo.as_mut().unwrap();
                     for (i, id) in obj.m_impact_list.iter().enumerate() {
                         if *id == self.impact_id {
-                            // if attr_type == EmAttribute::EmAttributeHp {
-                            //     obj.m_impact_hurt[i] = p_row.param[1] as i32 * -1;
-                            // }
-                            // if attr_type == EmAttribute::EmAttributeMp {
-                            //     obj.m_impact_mp[i] = p_row.param[1] as i32 * -1;
-                            // }
+                            if attr_type == EmAttribute::EmAttributeHp {
+                                obj.m_impact_hurt[i] = p_row.param[1] as i32 * -1;
+                            }
+                            if attr_type == EmAttribute::EmAttributeMp {
+                                obj.m_impact_mp[i] = p_row.param[1] as i32 * -1;
+                            }
                             break;
                         }
                     }
@@ -503,11 +503,143 @@ impl Impact {
     /// * 逻辑参数2：改变的具体数值
     /// * 逻辑参数3：持续时间，单位回合（10）
     /// * 最终可实现的效果如敌人攻击减少X点持续10回合。
-    pub fn impact_logic5(&mut self) {}
+    pub fn impact_logic5(&mut self) {
+        let p_attack_info = self.p_caster.get_attack_info();
+
+        if !p_attack_info.is_valid() {
+            return;
+        }
+
+        let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
+
+        if None == res_skill_attack {
+            return;
+        }
+        let p_skill_attack = res_skill_attack.unwrap();
+
+        if !p_skill_attack.is_valid() {
+            return;
+        }
+
+        let mut p_impact_info = p_skill_attack.get_impact_info(self.impact_id);
+
+        if !p_impact_info.is_valid() {
+            return;
+        }
+
+        let target_index = p_impact_info.get_target_index(self.p_holder.get_guid());
+        if None == target_index {
+            return;
+        }
+
+        let index = target_index.unwrap();
+
+        let p_fight_cell = self.p_holder.get_fight_cell();
+        let n_physic_attack = self.p_caster.get_physic_attack();
+        let p_row = self.get_impact_row();
+
+        if self.logic_time <= self.life {
+            let n = p_row.param[0] as u8;
+            let tp = EmAttribute::try_from(n);
+            let attr_type = tp.unwrap();
+            let n_attr_type = attr_type.into_usize();
+            self.p_holder.change_effect(n_attr_type, p_row.param[1] * -1, false);
+
+            if self.start_time == self.logic_time {
+                if attr_type == EmAttribute::EmAttributeHp {
+                    self.p_holder.set_hp(self.p_holder.get_hp());
+                    p_impact_info.hurts[index][0] = p_row.param[1] as i32;
+                }
+                if attr_type == EmAttribute::EmAttributeMp {
+                    p_impact_info.mp[index] = p_row.param[1] as i32;
+                }
+            } else if self.start_time < self.logic_time {
+                let p_round_info = p_fight_cell.get_round_info();
+                let mut p_fobjectinfo = p_round_info.get_fobjectinfo_by_guid(self.p_holder.get_guid());
+
+                if p_fobjectinfo.is_some() {
+                    let obj = p_fobjectinfo.as_mut().unwrap();
+                    for (i, id) in obj.m_impact_list.iter().enumerate() {
+                        if *id == self.impact_id {
+                            if attr_type == EmAttribute::EmAttributeHp {
+                                obj.m_impact_hurt[i] = p_row.param[1] as i32;
+                            }
+                            if attr_type == EmAttribute::EmAttributeMp {
+                                obj.m_impact_mp[i] = p_row.param[1] as i32;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        self.logic_time += 1;
+    }
 
     /// # 6=单次魔法攻击
     /// * 逻辑参数1：从英雄魔法攻击中取得的倍率（例：150）
     /// * 逻辑参数2：额外增加的魔法伤害（例：50）
     /// * 如英雄魔法攻击为100，则最终的技能魔法攻击=英雄魔法攻击（100）*逻辑参数1（150/100）+逻辑参数2（50）
-    pub fn impact_logic6(&mut self) {}                //
+    pub fn impact_logic6(&mut self) {
+        let p_attack_info = self.p_caster.get_attack_info();
+
+        if !p_attack_info.is_valid() {
+            return;
+        }
+
+        let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
+
+        if None == res_skill_attack {
+            return;
+        }
+        let p_skill_attack = res_skill_attack.unwrap();
+
+        if !p_skill_attack.is_valid() {
+            return;
+        }
+
+        let mut p_impact_info = p_skill_attack.get_impact_info(self.impact_id);
+
+        if !p_impact_info.is_valid() {
+            return;
+        }
+
+        let target_index = p_impact_info.get_target_index(self.p_holder.get_guid());
+        if None == target_index {
+            return;
+        }
+
+        let index = target_index.unwrap();
+
+        let p_fight_cell = self.p_holder.get_fight_cell();
+        let n_magic_attack = self.p_caster.get_magic_attack();
+        let p_row = self.get_impact_row();
+
+        let mut n_attack = n_magic_attack as f32 * p_row.param[0] as f32 * 0.01 + p_row.param[1] as f32;
+        if p_fight_cell.get_fight_type() == EmTypeFight::EmTypeFightStair && self.p_caster.is_attacker() {
+            n_attack += n_attack * p_fight_cell.get_plus_atk() as f32 / 100.0;
+        }
+
+        let n_defend = self.p_holder.get_magic_defend() as f32;
+        let n_decay = self.p_holder.get_magic_hurt_decay() as f32;
+        //本次魔法攻击伤害=(自身当前经过连击计算后的魔法攻击-目标魔法防御)*(1-目标魔法伤害减免/100)
+        let mut n_damage = calcdamage(n_attack, n_defend, n_decay);
+        chkmin(&mut n_damage, 0);
+
+        self.p_holder.set_hp(self.p_holder.get_hp() - n_damage);
+
+        p_impact_info.hurts[index][0] = n_damage as i32;
+
+        //连击
+        let f_con_att_hurt = self.p_caster.get_con_att_hurt() as f32 * 0.01;
+        for i in 1..=self.con_att_times {
+            n_attack = n_attack * f_con_att_hurt;
+            n_damage = calcdamage(n_attack, n_defend, n_decay);
+            chkmin(&mut n_damage, 0);
+
+            self.p_holder.set_hp(self.p_holder.get_hp() - n_damage);
+
+            p_impact_info.hurts[index][i as usize] = n_damage as i32;
+        }
+    }
 }
