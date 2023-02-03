@@ -4,26 +4,26 @@ use crate::fight::skill_attack::SkillAttack;
 #[derive(Debug, Default, Clone)]
 pub struct AttackInfo {
     /// 对象guid
-    cast_guid: u32,
+    pub cast_guid: u32,
     /// 魔法攻击还是普通攻击
-    b_skilled: u32,
+    pub b_skilled: bool,
     /// 魔法攻击
-    skill_attack_list: Vec<SkillAttack>,
+    pub skill_attack_list: Vec<SkillAttack>,
     /// 如果是普通攻击先进行装备技能攻击
     /// 普通攻击
-    skill_attack_count: u32,
+    pub skill_attack_count: u32,
     /// 普通攻击目标
-    skill_target: u32,
+    pub skill_target: u32,
     /// 是否命中
-    b_hit: u32,
+    pub b_hit: bool,
     /// 是否暴击
-    b_strike: u32,
+    pub b_strike: bool,
     /// 伤害值
-    hurt: u32,
+    pub hurt: u32,
     /// 是否有反击
-    b_back_attack: u32,
+    pub b_back_attack: bool,
     /// 反击伤害
-    back_attack_hurt: u32,
+    pub back_attack_hurt: u32,
 }
 
 impl AttackInfo {
@@ -42,5 +42,13 @@ impl AttackInfo {
             }
         }
         None
+    }
+
+
+
+    pub fn alloc_skill_attack(&mut self) -> Option<&SkillAttack> {
+        let index = self.skill_attack_count;
+        self.skill_attack_count += 1;
+        self.skill_attack_list.get(index as usize)
     }
 }

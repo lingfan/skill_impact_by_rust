@@ -1,39 +1,37 @@
-use num_enum::{TryFromPrimitive, IntoPrimitive};
-use std::collections::HashMap;
 use crate::fight::fight_object::FightObject;
 use crate::fight::{EmAttribute, EmTypeFight};
 use crate::fight::skill_const::MAX_IMPACT_LOGIC_PARAM_COUNT;
 use crate::fight::utils::{calcdamage, chkmin};
 
 #[derive(Debug, Default, Clone)]
-struct TableRowImpact {
-    impact_id: u32,
+pub struct TableRowImpact {
+    pub impact_id: u32,
     //impact_id
-    description: String,
+    pub description: String,
     //策划描述
-    logic_id: u32,
+    pub logic_id: u32,
     //Impact逻辑id
-    param: [i32; MAX_IMPACT_LOGIC_PARAM_COUNT as usize],
+    pub param: [i32; MAX_IMPACT_LOGIC_PARAM_COUNT as usize],
     //逻辑参数
-    icon: String,
+    pub icon: String,
     //Buff图标
-    impact_mutex_id: u32,
+    pub impact_mutex_id: u32,
     //IMPACT互斥id
-    replace_level: u32,
+    pub replace_level: u32,
     //顶替优先级
-    dead_disapeer: u32,
+    pub dead_disapeer: u32,
     //死亡后是否消失
-    offline_time_go: u32,
+    pub offline_time_go: u32,
     //下线是否计时	INT
-    script_id: u32,
+    pub script_id: u32,
     //脚本ID
-    sz_effect: String,
+    pub sz_effect: String,
     //特效
-    sz_name: String,
+    pub sz_name: String,
     //名称
-    sz_desc: String,
+    pub sz_desc: String,
     //描述
-    sz_skill_effect: String,                        //技能效果
+    pub sz_skill_effect: String,                        //技能效果
 }
 
 #[derive(Debug, Default, Clone)]
@@ -151,7 +149,7 @@ impl Impact {
 
         let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
 
-        if None == res_skill_attack {
+        if res_skill_attack.is_none(){
             return;
         }
         let p_skill_attack = res_skill_attack.unwrap();
@@ -193,7 +191,7 @@ impl Impact {
         p_impact_info.hurts[index][0] = n_damage as i32;
 
         //连击
-        let f_con_att_hurt = self.p_caster.get_con_att_hurt() as f32 * 0.01;
+        let f_con_att_hurt = self.p_caster.get_con_atk_hurt() as f32 * 0.01;
         for i in 1..=self.con_att_times {
             n_attack = n_attack * f_con_att_hurt;
             n_damage = calcdamage(n_attack, n_defend, n_decay);
@@ -218,7 +216,7 @@ impl Impact {
 
         let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
 
-        if None == res_skill_attack {
+        if res_skill_attack.is_none() {
             return;
         }
         let p_skill_attack = res_skill_attack.unwrap();
@@ -260,7 +258,7 @@ impl Impact {
         p_impact_info.hurts[index][0] = n_damage as i32;
 
         //连击
-        let f_con_att_hurt = self.p_caster.get_con_att_hurt() as f32 * 0.01;
+        let f_con_att_hurt = self.p_caster.get_con_atk_hurt() as f32 * 0.01;
         for i in 1..=self.con_att_times {
             n_attack = n_attack * f_con_att_hurt;
             n_damage = calcdamage(n_attack, n_defend, n_decay);
@@ -287,7 +285,7 @@ impl Impact {
 
         let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
 
-        if None == res_skill_attack {
+        if res_skill_attack.is_none() {
             return;
         }
         let p_skill_attack = res_skill_attack.unwrap();
@@ -361,7 +359,7 @@ impl Impact {
 
         let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
 
-        if None == res_skill_attack {
+        if res_skill_attack.is_none() {
             return;
         }
         let p_skill_attack = res_skill_attack.unwrap();
@@ -434,7 +432,7 @@ impl Impact {
 
         let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
 
-        if None == res_skill_attack {
+        if res_skill_attack.is_none() {
             return;
         }
         let p_skill_attack = res_skill_attack.unwrap();
@@ -512,7 +510,7 @@ impl Impact {
 
         let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
 
-        if None == res_skill_attack {
+        if res_skill_attack.is_none() {
             return;
         }
         let p_skill_attack = res_skill_attack.unwrap();
@@ -589,7 +587,7 @@ impl Impact {
 
         let res_skill_attack = p_attack_info.get_skill_attack(self.skill_id);
 
-        if None == res_skill_attack {
+        if res_skill_attack.is_none() {
             return;
         }
         let p_skill_attack = res_skill_attack.unwrap();
@@ -631,7 +629,7 @@ impl Impact {
         p_impact_info.hurts[index][0] = n_damage as i32;
 
         //连击
-        let f_con_att_hurt = self.p_caster.get_con_att_hurt() as f32 * 0.01;
+        let f_con_att_hurt = self.p_caster.get_con_atk_hurt() as f32 * 0.01;
         for i in 1..=self.con_att_times {
             n_attack = n_attack * f_con_att_hurt;
             n_damage = calcdamage(n_attack, n_defend, n_decay);

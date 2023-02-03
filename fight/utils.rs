@@ -1,3 +1,4 @@
+use rand::Rng;
 //属性值计算公式
 pub fn calcattr1(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32, g: f32) -> f32 {
     (a + b * c * 0.01) * (1.0 + d * 0.01 + e * 0.01) + f + g
@@ -27,4 +28,10 @@ pub fn getskillgroup(a: u32) -> u32 {
 
 pub fn getskilllevel(a: u32) -> u32 {
     a % 100
+}
+
+pub fn get_rand(min: u32, max: u32) -> u32 {
+    let mut rng = rand::thread_rng();
+    let n_rand = rng.gen_range(min..max);
+    n_rand
 }

@@ -1,8 +1,8 @@
 use num_enum::TryFromPrimitive;
 use num_enum::IntoPrimitive;
-use std::convert::TryFrom;
+use crate::fight::fight_object::FightObject;
 use crate::fight::fight_round_info::FightRoundInfo;
-use crate::fight::skill_const::{MAX_CONATTACK_TIMES, MAX_IMPACT_NUMBER, MAX_MATRIX_CELL_COUNT};
+use crate::fight::skill_const::{MAX_CONATTACK_TIMES, MAX_IMPACT_NUMBER, MAX_MATRIX_CELL_COUNT, MAX_SKILL_IMPACT_COUNT};
 
 mod fight_cell;
 mod fight_object;
@@ -13,14 +13,12 @@ mod skill_attack;
 mod impact_info;
 mod fight_round_info;
 mod utils;
+mod fight_object_list;
 
 
-
-
-
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
+#[derive(Default, Debug, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
-pub enum EmTypeFight{
+pub enum EmTypeFight {
     #[default]
     EmTypeFightNormal = 0,
     EmTypeFightStair,
@@ -183,7 +181,7 @@ pub mod skill_const {
     //技能升级最多使用道具
     pub const MAX_SKILLUP_ITEM_COUNT: u32 = 5;
     //技能最大选择目标
-    pub const MAX_MATRIX_CELL_COUNT: u32 = 6;
+    pub const MAX_MATRIX_CELL_COUNT: usize = 6;
     //冷却数量
     pub const MAX_SKILL_COOLDOWN_NUMBER: u32 = 10;
     //impact数量
@@ -297,3 +295,212 @@ impl EmAttribute {
     }
 }
 
+
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum EmSkillType {
+    //0=英雄主动技能
+    #[default]
+    EmSkillTypeHeroActive = 0,
+    //1=英雄被动技能
+    EmSkillTypeHeroPassive,
+    //2=装备主动技能
+    EmSkillTypeEquipActive,
+    //3=装备被动技能
+    EmSkillTypeEquipPassive,
+}
+
+//技能选择目标方式
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum EmSkillTargetOpt {
+    #[default]
+    /// 0=自动选择
+    EmSkillTargetOptAuto = 0,
+    /// 0=顺序选择
+    EmSkillTargetOptOrder = 1,
+    /// 1=随机选择
+    EmSkillTargetOptRand = 2,
+    /// 2=后排优先
+    EmSkillTargetOptSlow = 3,
+    EmSkillTargetOptNumber,
+}
+
+//IMPACT选择目标方式
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum EmImpactTarget {
+    //0=自身；
+    #[default]
+    EmImpactTargetOptSelf,
+    //1=己方个体；
+    EmImpactTargetOwnerSingle,
+    //2=己方全体；
+    EmImpactTargetOwnerAll,
+    //3=敌方个体；
+    EmImpactTargetEnemySingle,
+    //4=敌方横排；
+    EmImpactTargetEnemyFront,
+    //5=敌方后排优先；
+    EmImpactTargetEnemyBehind,
+    //6=敌方全体；
+    EmImpactTargetEnemyAll,
+    //7=敌方目标竖排；
+    EmImpactTargetEnemyLine,
+    //8=敌方目标及周围；
+    EmImpactTargetEnemyAround,
+    //9=敌方后排个体
+    EmImpactTargetEnemyBehindOne,
+    //10=己方血最少
+    EmImpactTargetOwnerMinHp,
+    //11=己方蓝最少
+    EmImpactTargetOwnerMinMp,
+
+    EmImpactTargetOptNumber,
+
+}
+
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum EmImpactLogic {
+    #[default]
+    EmImpactLogic0 = 0,
+    EmImpactLogic1,
+    //持续物伤
+    EmImpactLogic2,
+    //持续法伤
+    EmImpactLogic3,
+    EmImpactLogic4,
+    EmImpactLogic5,
+    EmImpactLogic6,
+
+    EmImpactLogicCount,
+}
+
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum EmTypeImpactLogic
+{
+    //单次生效
+    #[default]
+    EmTypeImpactLogicSingle = 0,
+    //强化
+    EmTypeImpactLogicBuff,
+    //削弱
+    EmTypeImpactLogicDeBuff,
+
+    EmTypeImpactLogicCount,
+}
+
+
+//impact结果
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u8)]
+pub enum EmImpactResult {
+    //正常加目标身上
+    #[default]
+    EmImpactResultNormal = 0,
+    //不能加在目标身上
+    EmImpactResultFail,
+    //抵消
+    EmImpactResultDisappear,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct TargetList {
+    object_list: Vec<FightObject>,
+    n_count: usize,
+}
+
+impl TargetList {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn cleanup(&mut self) {
+        self.n_count = 0;
+        self.object_list.clear();
+    }
+
+
+    pub fn get_fight_object(&self, index: usize) -> FightObject {
+        self.object_list[index].clone()
+    }
+
+    pub fn add(&mut self, object: FightObject) {
+        self.object_list[self.n_count] = object;
+        self.n_count += 1;
+    }
+}
+
+//技能
+#[derive(Default, Debug, Clone)]
+pub struct TableRowSKill {
+    /// 技能ID
+    skill_id: u32,
+    /// 策划注释
+    description: u32,
+    /// 技能名称
+    name: u32,
+    /// 技能等级
+    skill_level: u32,
+    /// 技能描述
+    tips: u32,
+    /// 目标选择方式	EM_SEPLL_TARGET_OPERATOR
+    select_target_opt: u8,
+    /// 技能施放概率
+    skill_rate: u32,
+    /// 法力消耗
+    need_mp: u32,
+    /// 技能内置冷却
+    cool_down_time: u32,
+    /// 技能冷却ID
+    cool_down_id: u32,
+    /// 第一次施放
+    start_round: u32,
+    /// 技能类型		0=英雄主动技能；1=英雄被动技能；2=装备主动技能；3=装备被动技能。
+    skill_type: u8,
+    /// 附加Impact
+    impact_id: [u32; MAX_SKILL_IMPACT_COUNT as usize],
+    /// 附加Impact 概率
+    impact_rate: [u32; MAX_SKILL_IMPACT_COUNT as usize],
+    /// impact选择类型
+    impact_target_type: [u8; MAX_SKILL_IMPACT_COUNT as usize],
+    /// 脚本ID
+    script_id: u32,
+    /// 英雄等级
+    hero_level: u32,
+    /// 银币消耗
+    consume_money: u32,
+    /// 学习类型 0=走commonitem 1=走道具消耗
+    learn_type: u32,
+    /// 道具消耗
+    consume_item: u32,
+    /// 道具消耗个数
+    consume_item_count: u32,
+    /// 木材消耗
+    consume_wood: u32,
+    /// 学习成功率
+    learned_rate: u32,
+    /// 增加成功率道具
+    enhance_item: u32,
+    /// 道具增加的成功率
+    enhance_rate: u32,
+    /// 道具最使用数量
+    enhance_item_count: u32,
+    /// 技能出手动作
+    sz_action: u32,
+    /// 技能自身特效
+    sz_effect: u32,
+    /// 技能受击特效
+    sz_hit_effect: u32,
+    sz_icon: u32,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct FightDB {
+    //玩家Guid
+    human_guid: u32,
+    fight_count: u32,
+    fight_db_data: [FightDBData; MAX_MATRIX_CELL_COUNT],
+}
